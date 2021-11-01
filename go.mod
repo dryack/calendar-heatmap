@@ -1,4 +1,5 @@
-module github.com/blurfx/calendar-heatmap
+//module github.com/blurfx/calendar-heatmap
+module github.com/dryack/calendar-heatmap
 
 go 1.16
 
