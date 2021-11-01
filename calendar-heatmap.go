@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 type CalendarHeatmapConfig struct {
 	Colors           []string
 	BlockSize        float64
@@ -18,6 +17,8 @@ type CalendarHeatmapConfig struct {
 	MonthLabelHeight float64
 	WeekdayLabels    []string
 	weekLabelWidth   float64
+	HourLabels       []string
+	hourLabelWidth   float64
 }
 
 type CalendarHeatmap struct {
@@ -25,9 +26,10 @@ type CalendarHeatmap struct {
 }
 
 type Date struct {
-	Year int
+	Year  int
 	Month time.Month
-	Day int
+	Day   int
+	Hour  int
 }
 
 type point struct {
@@ -38,12 +40,14 @@ type point struct {
 var defaultConfig = &CalendarHeatmapConfig{
 	Colors:           []string{"#EBEDF0", "#9BE9A8", "#40C463", "#30A14E", "#216E39"},
 	BlockSize:        11,
-	BlockRoundness:	  2,
+	BlockRoundness:   2,
 	BlockMargin:      2,
 	MonthLabels:      []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"},
 	MonthLabelHeight: 15,
 	WeekdayLabels:    []string{"", "Mon", "", "Wed", "", "Fri", ""},
 	weekLabelWidth:   0,
+	HourLabels:       []string{"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"},
+	hourLabelWidth:   0,
 }
 
 func New(config *CalendarHeatmapConfig) *CalendarHeatmap {
@@ -57,15 +61,15 @@ func New(config *CalendarHeatmapConfig) *CalendarHeatmap {
 }
 
 func (date Date) Time() time.Time {
-	return time.Date(date.Year, date.Month, date.Day, 0, 0, 0, 0, time.Local)
+	return time.Date(date.Year, date.Month, date.Day, date.Hour, 0, 0, 0, time.UTC)
 }
 
 func (c *CalendarHeatmap) getPosition(row, column int) *point {
 	bounds := c.Config.BlockSize + c.Config.BlockMargin
 
 	return &point{
-		Y: c.Config.MonthLabelHeight + bounds * float64(column),
-		X: c.Config.weekLabelWidth + bounds * float64(row),
+		Y: c.Config.MonthLabelHeight + bounds*float64(column),
+		X: c.Config.weekLabelWidth + bounds*float64(row),
 	}
 }
 
@@ -95,7 +99,7 @@ func (c *CalendarHeatmap) Generate(dateFrom, dateTo Date, data map[Date]int) *by
 
 	// calculate label width
 	for _, s := range config.WeekdayLabels {
-		config.weekLabelWidth = math.Max(config.weekLabelWidth, float64(len(s) * weekdayLabelFontSize))
+		config.weekLabelWidth = math.Max(config.weekLabelWidth, float64(len(s)*weekdayLabelFontSize))
 	}
 
 	// if month of the first week is different from the month of the second week,
@@ -116,7 +120,7 @@ func (c *CalendarHeatmap) Generate(dateFrom, dateTo Date, data map[Date]int) *by
 			prevMonth = currentMonth
 			canvas.Text(
 				pos.X,
-				pos.Y + (config.BlockSize / 2) - config.MonthLabelHeight,
+				pos.Y+(config.BlockSize/2)-config.MonthLabelHeight,
 				config.MonthLabels[prevMonth-1],
 				fmt.Sprintf("font-size: %dpx;alignment-baseline: central; fill: #aaa;", monthLabelFontSize),
 			)
@@ -125,9 +129,10 @@ func (c *CalendarHeatmap) Generate(dateFrom, dateTo Date, data map[Date]int) *by
 		// draw heatmap blocks
 		for currentDate.Weekday() <= time.Saturday && currentDate.Unix() <= endTimestamp {
 			fillColor := config.Colors[0]
-			pos := c.getPosition(week, int(currentDate.Weekday()) - 1)
+			pos := c.getPosition(week, int(currentDate.Weekday())-1)
 			year, month, day := currentDate.Date()
-			date := Date{year, month, day}
+			hour := currentDate.Hour()
+			date := Date{year, month, day, hour}
 
 			if value, ok := data[date]; ok {
 				fillColor = config.Colors[value]
@@ -135,7 +140,7 @@ func (c *CalendarHeatmap) Generate(dateFrom, dateTo Date, data map[Date]int) *by
 
 			canvas.Roundrect(
 				pos.X,
-				pos.Y + config.MonthLabelHeight,
+				pos.Y+config.MonthLabelHeight,
 				config.BlockSize,
 				config.BlockSize,
 				config.BlockRoundness,
@@ -157,7 +162,7 @@ func (c *CalendarHeatmap) Generate(dateFrom, dateTo Date, data map[Date]int) *by
 
 		canvas.Text(
 			0,
-			pos.Y - (config.BlockSize / 2),
+			pos.Y-(config.BlockSize/2),
 			config.WeekdayLabels[day],
 			style,
 		)
